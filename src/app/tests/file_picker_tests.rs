@@ -127,7 +127,7 @@ fn listed(app: &App) -> Vec<String> {
     app.file_picker
         .filtered_indices()
         .into_iter()
-        .map(|idx| app.file_picker.candidates[idx].1.clone())
+        .map(|(idx, _)| app.file_picker.candidates[idx].1.clone())
         .collect()
 }
 
@@ -175,13 +175,56 @@ fn should_narrow_the_list_while_the_filter_is_typed() {
     let mut app = app_with(PATHS);
     app.enter_file_picker_mode();
 
-    type_filter(&mut app, "SRC/UI");
+    type_filter(&mut app, "src/ui");
 
     assert!(app.file_picker_filtering());
     assert_eq!(listed(&app), vec!["src/ui/file_list.rs"]);
     assert_eq!(
         app.file_picker.selected_file_idx(),
         Some(index_of(&app, "src/ui/file_list.rs"))
+    );
+}
+
+/// fuzzy-matcher uses smart case: a pattern with uppercase letters matches
+/// case-sensitively, a lowercase pattern matches case-insensitively.
+#[test]
+fn file_picker_filter_is_case_sensitive_when_typed_uppercase() {
+    let mut app = app_with(PATHS);
+    app.enter_file_picker_mode();
+
+    // Uppercase SRC does not match lowercase paths.
+    type_filter(&mut app, "SRC");
+
+    assert!(app.file_picker_filtering());
+    assert!(listed(&app).is_empty());
+    assert_eq!(app.file_picker.selected_file_idx(), None);
+
+    // Lowercase src matches all paths under src/ case-insensitively.
+    app.file_picker_filter_clear_line();
+    type_filter(&mut app, "src");
+
+    let listed = listed(&app);
+    assert_eq!(
+        listed,
+        vec!["src/main.rs", "src/app/tree.rs", "src/ui/file_list.rs"]
+    );
+}
+
+/// Fuzzy matching ranks partial matches best-first by score, not by
+/// substring containment. Typing "sm" matches src/main.rs (s at 0, m
+/// at 4) and tests/smoke.rs (s at 4, m at 5), ranked best-first.
+#[test]
+fn file_picker_filter_ranks_partial_fuzzy_match_first() {
+    let mut app = app_with(PATHS);
+    app.enter_file_picker_mode();
+
+    type_filter(&mut app, "sm");
+
+    let listed = listed(&app);
+    assert_eq!(listed, vec!["src/main.rs", "tests/smoke.rs"]);
+    assert_eq!(
+        app.file_picker.selected_file_idx(),
+        Some(index_of(&app, "src/main.rs"))
     );
 }
 

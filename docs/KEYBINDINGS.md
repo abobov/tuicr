@@ -43,16 +43,16 @@ quits at once, without the unsaved-changes warning `:q` gives.
 
 ## File picker
 
-`<leader>p` opens a popup over the diff that lists the files in the review, so you
-can jump to one without showing the file list. It lists only the files on screen:
-the file tree's `i` / `e` filters and hidden reviewed files (`:set reviewed!`)
-apply. The diff's current file starts selected.
+`<leader>p` opens a popup over the diff that lists the files in the review,
+so you can jump to one without showing the file list. It lists only the
+files on screen: the file tree's `i` / `e` filters and hidden reviewed
+files (`:set reviewed!`) apply. The diff's current file starts selected.
 
 | Key | Action |
 |-----|--------|
 | `j` / `↓` | Select next file |
 | `k` / `↑` | Select previous file |
-| `/` | Filter paths by case-insensitive substring; the list narrows as you type. `↑` / `↓` move the selection, `Enter` jumps to it and closes, `Esc` drops the filter and keeps the popup open |
+| `/` | Open a fuzzy filter: as you type, paths are scored with fuzzy-matcher's matcher (case-insensitive unless you type uppercase) and ranked best-first; `↑` / `↓` move the selection, `Ctrl-w` deletes the previous word, `Enter` jumps to it and closes, `Esc` drops the filter and keeps the popup open |
 | `Enter` | Jump to the selected file, the same as `Enter` in the file tree (single-file view switches to it) |
 | `Esc` | Close without moving |
 

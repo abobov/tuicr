@@ -81,7 +81,7 @@ pub fn render_file_picker(frame: &mut Frame, app: &mut App) {
         let path_width = usize::from(list_area.width).saturating_sub(2).max(1);
         let items: Vec<ListItem> = filtered
             .iter()
-            .map(|&candidate_idx| {
+            .map(|&(candidate_idx, _)| {
                 let (file_idx, path) = &app.file_picker.candidates[candidate_idx];
                 let status = app
                     .diff_files

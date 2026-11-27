@@ -124,7 +124,7 @@ impl App {
             .file_picker
             .filtered_indices()
             .iter()
-            .position(|&idx| Some(self.file_picker.candidates[idx].0) == previous)
+            .position(|&(idx, _)| Some(self.file_picker.candidates[idx].0) == previous)
             .unwrap_or(0);
         self.file_picker.select(position);
     }

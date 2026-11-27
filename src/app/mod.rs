@@ -30,6 +30,7 @@ use crate::vcs::{
     ResolvedRevisionRange, RevisionDiffTarget, VcsBackend, VcsChangeStatus, VcsInfo, detect_vcs,
 };
 use crate::word_diff::ChangedRanges;
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
 const VISIBLE_COMMIT_COUNT: usize = 10;
 const COMMIT_PAGE_SIZE: usize = 10;
@@ -2037,21 +2038,40 @@ pub struct FilePickerState {
 }
 
 impl FilePickerState {
-    /// Indices into `candidates` that survive the open draft
-    /// (case-insensitive substring match on the display path; an empty or
-    /// absent draft shows every candidate).
-    pub fn filtered_indices(&self) -> Vec<usize> {
-        let needle = self
-            .draft
-            .as_deref()
-            .unwrap_or_default()
-            .trim()
-            .to_lowercase();
-        self.candidates
+    /// Indices into `candidates` that survive the open draft, with match
+    /// positions.
+    ///
+    /// Returns `(candidate_index, match_positions)` pairs. `match_positions`
+    /// are character offsets into the candidate's display path that match the
+    /// draft, for highlighting.
+    ///
+    /// With an empty draft every candidate is listed in its original order
+    /// with empty match positions.
+    /// With a non-empty draft, each candidate is scored with fuzzy-matcher's
+    /// matcher (`SkimMatcherV2`); only matches survive, ranked best-first
+    /// (ties broken by original index for a stable order).
+    pub fn filtered_indices(&self) -> Vec<(usize, Vec<usize>)> {
+        let needle = self.draft.as_deref().unwrap_or_default().trim();
+        if needle.is_empty() {
+            return (0..self.candidates.len())
+                .map(|i| (i, Vec::new()))
+                .collect();
+        }
+        let matcher = SkimMatcherV2::default();
+        let mut scored: Vec<(i64, usize, Vec<usize>)> = self
+            .candidates
             .iter()
             .enumerate()
-            .filter(|(_, (_, path))| needle.is_empty() || path.to_lowercase().contains(&needle))
-            .map(|(idx, _)| idx)
+            .filter_map(|(idx, (_, path))| {
+                matcher
+                    .fuzzy_indices(path, needle)
+                    .map(|(score, positions)| (score, idx, positions))
+            })
+            .collect();
+        scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+        scored
+            .into_iter()
+            .map(|(_, idx, positions)| (idx, positions))
             .collect()
     }
 
@@ -2078,7 +2098,7 @@ impl FilePickerState {
     fn selected_candidate(&self) -> Option<&(usize, String)> {
         self.filtered_indices()
             .get(self.selected())
-            .and_then(|idx| self.candidates.get(*idx))
+            .and_then(|&(idx, _)| self.candidates.get(idx))
     }
 }
 

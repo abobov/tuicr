@@ -124,7 +124,7 @@ and Draft. Inline comments land on their lines; review-level comments become the
 |---|---|
 | `j` / `k`, `Ctrl-d` / `Ctrl-u` | Scroll a line / half a page |
 | `{` / `}`, `[` / `]` | Previous / next file, hunk |
-| `<leader>p` | Jump to a file by path (leader is `;` by default) |
+| `<leader>p` | Fuzzy-find and jump to a file (leader is `;` by default) |
 | `c` / `C` | Comment on the line / file |
 | `v` / `V` | Visual mode for a range comment (`s` suggests a code change) |
 | `r` / `R` | Toggle file / hunk reviewed |
