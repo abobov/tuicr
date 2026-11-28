@@ -12,11 +12,58 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::ui::diff_view::truncate_path_smart;
 use crate::ui::styles;
+use crate::ui::text_utils::prefix_within_width;
+use unicode_width::UnicodeWidthStr;
 
 /// Diff-area width below which the popup spans the whole diff.
 const NARROW_WIDTH: u16 = 80;
+
+/// Like `truncate_path_smart`, but also returns the character offset into
+/// `path` where the kept content starts in the original string, and the
+/// offset within the truncated string where that content begins.
+///
+/// This lets callers map match positions (character offsets in the full
+/// path) to positions in the truncated string: for a match at position `p`,
+/// if `p >= original_offset`, its position in the truncated string is
+/// `truncated_content_offset + (p - original_offset)`; otherwise it was
+/// truncated away.
+fn truncate_path_with_offset(path: &str, max_width: usize) -> (String, usize, usize) {
+    if path.width() <= max_width {
+        return (path.to_string(), 0, 0);
+    }
+
+    let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+    if segments.is_empty() {
+        return (path.to_string(), 0, 0);
+    }
+
+    // "…/tail" with n tail segments
+    for n in (1..segments.len()).rev() {
+        let tail = segments[segments.len() - n..].join("/");
+        let candidate = format!("…/{tail}");
+        if candidate.width() <= max_width {
+            let dropped = segments[..segments.len() - n].join("/");
+            let original_offset = dropped.chars().count() + 1; // +1 for the "/"
+            return (candidate, original_offset, 2); // content starts after "…"
+        }
+    }
+
+    // Just basename
+    let basename = segments.last().unwrap();
+    let basename_byte_offset = path.rfind(basename).unwrap_or(path.len() - basename.len());
+    let original_offset = path[..basename_byte_offset].chars().count();
+
+    if basename.width() <= max_width {
+        return (basename.to_string(), original_offset, 0);
+    }
+
+    // Basename too wide: keep leading chars + …
+    let kept = max_width.saturating_sub(1);
+    let mut s = prefix_within_width(basename, kept).to_string();
+    s.push('…');
+    return (s, original_offset, 0);
+}
 
 pub fn render_file_picker(frame: &mut Frame, app: &mut App) {
     let theme = &app.theme;
@@ -81,20 +128,79 @@ pub fn render_file_picker(frame: &mut Frame, app: &mut App) {
         let path_width = usize::from(list_area.width).saturating_sub(2).max(1);
         let items: Vec<ListItem> = filtered
             .iter()
-            .map(|&(candidate_idx, _)| {
+            .map(|&(candidate_idx, ref positions)| {
                 let (file_idx, path) = &app.file_picker.candidates[candidate_idx];
                 let status = app
                     .diff_files
                     .get(*file_idx)
                     .map(|file| file.status.as_char())
                     .unwrap_or(' ');
-                ListItem::new(Line::from(vec![
-                    Span::styled(
-                        format!("{status} "),
-                        styles::file_status_style(theme, status),
-                    ),
-                    Span::raw(truncate_path_smart(path, path_width)),
-                ]))
+                let (truncated, original_offset, truncated_content_offset) =
+                    truncate_path_with_offset(path, path_width);
+
+                let mut all_spans: Vec<Span> = vec![Span::styled(
+                    format!("{status} "),
+                    styles::file_status_style(theme, status),
+                )];
+
+                if positions.is_empty() {
+                    // No draft: show path unmarked
+                    all_spans.push(Span::raw(truncated));
+                } else {
+                    // Map match positions from the full path to the truncated string
+                    let match_positions: Vec<usize> = positions
+                        .iter()
+                        .filter_map(|&p| {
+                            if p < original_offset {
+                                None
+                            } else {
+                                Some(truncated_content_offset + (p - original_offset))
+                            }
+                        })
+                        .collect();
+
+                    let mut buf = String::new();
+                    let mut in_match = false;
+                    let mut match_idx = 0;
+                    for (i, ch) in truncated.chars().enumerate() {
+                        let is_match =
+                            match_idx < match_positions.len() && match_positions[match_idx] == i;
+                        if is_match {
+                            match_idx += 1;
+                        }
+                        if is_match != in_match {
+                            if !buf.is_empty() {
+                                all_spans.push(Span::styled(
+                                    buf.clone(),
+                                    if in_match {
+                                        Style::default()
+                                            .fg(theme.fg_primary)
+                                            .add_modifier(Modifier::BOLD)
+                                    } else {
+                                        Style::default().fg(theme.fg_secondary)
+                                    },
+                                ));
+                                buf.clear();
+                            }
+                            in_match = is_match;
+                        }
+                        buf.push(ch);
+                    }
+                    if !buf.is_empty() {
+                        all_spans.push(Span::styled(
+                            buf.clone(),
+                            if in_match {
+                                Style::default()
+                                    .fg(theme.fg_primary)
+                                    .add_modifier(Modifier::BOLD)
+                            } else {
+                                Style::default().fg(theme.fg_secondary)
+                            },
+                        ));
+                    }
+                }
+
+                ListItem::new(Line::from(all_spans))
             })
             .collect();
         let list = List::new(items)

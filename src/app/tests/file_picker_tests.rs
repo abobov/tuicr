@@ -210,6 +210,41 @@ fn file_picker_filter_is_case_sensitive_when_typed_uppercase() {
     );
 }
 
+/// `filtered_indices` returns character offsets into each matching path so
+/// the renderer can highlight matched segments.
+#[test]
+fn file_picker_filter_returns_match_positions() {
+    let mut app = app_with(&["src/main.rs", "README.md"]);
+    app.enter_file_picker_mode();
+
+    type_filter(&mut app, "main");
+
+    let filtered = app.file_picker.filtered_indices();
+    assert_eq!(filtered.len(), 1);
+    let (idx, positions) = &filtered[0];
+    assert_eq!(*idx, index_of(&app, "src/main.rs"));
+    // `main` matches at character offsets 4,5,6,7 in "src/main.rs"
+    assert_eq!(positions, &vec![4, 5, 6, 7]);
+}
+
+/// Match positions are reported for a long path that the renderer would
+/// truncate.
+#[test]
+fn file_picker_filter_match_positions_for_long_path() {
+    let long = "src/app/tree.rs";
+    let mut app = app_with(&[long, "README.md"]);
+    app.enter_file_picker_mode();
+
+    type_filter(&mut app, "tree");
+
+    let filtered = app.file_picker.filtered_indices();
+    assert_eq!(filtered.len(), 1);
+    let (idx, positions) = &filtered[0];
+    assert_eq!(*idx, index_of(&app, long));
+    // `tree` matches at character offsets 8,9,10,11 in "src/app/tree.rs"
+    assert_eq!(positions, &vec![8, 9, 10, 11]);
+}
+
 /// `Ctrl-w` deletes the previous word in the filter draft.
 #[test]
 fn file_picker_filter_delete_word_removes_previous_word() {
