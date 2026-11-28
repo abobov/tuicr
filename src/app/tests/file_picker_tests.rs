@@ -210,6 +210,22 @@ fn file_picker_filter_is_case_sensitive_when_typed_uppercase() {
     );
 }
 
+/// `Ctrl-w` deletes the previous word in the filter draft.
+#[test]
+fn file_picker_filter_delete_word_removes_previous_word() {
+    let mut app = app_with(PATHS);
+    app.enter_file_picker_mode();
+
+    type_filter(&mut app, "src main.rs");
+    handle_file_picker_action(&mut app, Action::DeleteWord);
+
+    assert_eq!(app.file_picker.draft.as_deref(), Some("src "));
+
+    // Deleting again removes the remaining word
+    handle_file_picker_action(&mut app, Action::DeleteWord);
+    assert_eq!(app.file_picker.draft.as_deref(), Some(""));
+}
+
 /// Fuzzy matching ranks partial matches best-first by score, not by
 /// substring containment. Typing "sm" matches src/main.rs (s at 0, m
 /// at 4) and tests/smoke.rs (s at 4, m at 5), ranked best-first.

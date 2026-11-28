@@ -640,6 +640,7 @@ pub fn map_file_picker_filter_mode(key: KeyEvent) -> Action {
     match (key.code, key.modifiers) {
         (KeyCode::Down, KeyModifiers::NONE) => Action::CursorDown(1),
         (KeyCode::Up, KeyModifiers::NONE) => Action::CursorUp(1),
+        (KeyCode::Char('w'), KeyModifiers::CONTROL) => Action::DeleteWord,
         _ => map_theme_picker_filter_mode(key),
     }
 }

@@ -107,6 +107,16 @@ impl App {
         }
     }
 
+    /// `Ctrl-w` while the filter draft is open: delete the word before the
+    /// end of the draft (the draft has no cursor, so text is always at the
+    /// end). Resets the selection to the top match.
+    pub fn file_picker_filter_delete_word(&mut self) {
+        if let Some(draft) = self.file_picker.draft.as_mut() {
+            let _ = crate::text_edit::delete_word_before(draft, draft.len());
+            self.file_picker.select(0);
+        }
+    }
+
     pub fn file_picker_filter_clear_line(&mut self) {
         if let Some(draft) = self.file_picker.draft.as_mut() {
             draft.clear();

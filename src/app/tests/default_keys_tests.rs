@@ -499,6 +499,7 @@ fn file_picker_filter() -> Vec<Row> {
     rows.extend([
         bind([code(Down)], A::CursorDown(1)),
         bind([code(Up)], A::CursorUp(1)),
+        bind([ctrl('w')], A::DeleteWord),
     ]);
     rows
 }

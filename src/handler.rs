@@ -2286,6 +2286,7 @@ pub fn handle_file_picker_action(app: &mut App, action: Action) {
                 .filter(|c| !matches!(c, '\n' | '\r'))
                 .for_each(|c| app.file_picker_filter_insert_char(c)),
             Action::DeleteChar => app.file_picker_filter_delete_char(),
+            Action::DeleteWord => app.file_picker_filter_delete_word(),
             Action::ClearLine => app.file_picker_filter_clear_line(),
             Action::CursorDown(n) => app.move_file_picker_selection(n as isize),
             Action::CursorUp(n) => app.move_file_picker_selection(-(n as isize)),
